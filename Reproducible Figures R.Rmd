@@ -1,0 +1,175 @@
+---
+title: "MT3 Computer Assignment - Reproducible_Figures_R"
+output:
+  pdf_document: default
+  html_document: default
+date: "2023-12-04"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Q1) Create a figure using the Palmer penguin dataset that is correct but badly communicates the data. Do not make a box plot. 
+##A) Figure inserted below:
+
+
+```{r,include==FALSE}
+library(ggplot2)
+library(palmerpenguins)
+library(janitor)
+library(dplyr)
+```
+
+```{r,include=FALSE}
+head(penguins_raw)
+```
+
+```{r, include=FALSE}
+write.csv(penguins_raw, "data/penguins_raw.csv")
+```
+
+```{r, include=FALSE}
+names(penguins_raw)
+```
+
+```{r, include=FALSE}
+penguins_clean <- select(penguins_raw,-starts_with("Delta"))
+penguins_clean <- select(penguins_clean,-Comments)
+```
+
+```{r, include=FALSE}
+penguins_clean <- penguins_raw %>%
+  select(-starts_with("Delta")) %>%
+  select(-Comments) %>%
+  clean_names()
+```
+
+```{r, include=FALSE}
+names(penguins_clean)
+```
+
+```{r, include=FALSE}
+clean_column_names <- function(penguins_data) {
+    penguins_data %>%
+        select(-starts_with("Delta")) %>%
+        select(-Comments) %>%
+        clean_names()
+}
+```
+
+```{r,echo=FALSE}
+  clean_graph <- ggplot(data = penguins_clean,
+                          aes(x=species,
+                              y=culmen_length_mm)) +
+    geom_violin(aes(color=species), show.legend = FALSE)
+clean_graph
+```
+##B) Write about how your design choices mislead the reader about the underlying data.
+##While technically this figure is not incorrect, this violin plot has some issues representing the data. The violin plot does not show individual data points and their distributions so it is difficult to observe the true nature of the data. It is therefore easy to misinterpret the data. Due to the natural complexity of the violin plot it can be inaccesible to those who are not familiar with this plot. 
+
+##Q2)Write a data analysis pipeline in your rmd. You should be aiming to write a clear explanation of the steps as well as clear code. 
+
+##Firstly you need to install the following packages:
+```{r, eval=FALSE}
+install.packages(c("ggplot2", "palmerpenguins", "janitor", "dplyr"))
+```
+##You then need to load the packages now that they are installed:
+```{r}
+library(ggplot2)
+library(palmerpenguins)
+library(janitor)
+library(dplyr)
+```
+##Next you need to load in the data set 
+```{r}
+head(penguins)
+```
+##Cleaning data by firstly looking at the column names
+```{r}
+names(penguins)
+```
+##Looking at the summary of data to see what is happening
+```{r}
+summary(penguins)
+```
+##Realise that there are some N/A results and decide to remove them 
+```{r}
+penguins <- na.omit(penguins)
+```
+
+##Shortening of island names:
+```{r}
+Clean_data <- penguins %>% 
+  mutate(island = substr(island,1,3))
+```
+##Also shortening species names which can be seen in this pipeline below
+##Pipeline for this cleaning:
+```{r}
+Clean_data <- penguins %>%
+  na.omit() %>%
+  mutate(island = substr(island,1,3)) %>%
+  mutate(species = substr(species,1,3)) 
+```
+###Observing the cleaning made to the data
+```{r}
+head(Clean_data)
+```
+##Explanatory figure
+```{r}
+ggplot(Clean_data, aes(x = species, bill_length_mm)) +
+  geom_point() +
+  labs(title = "Scatter Plot of Bill Length of each Species",
+       x = "Species",
+       y = "Bill Length (mm)")
+```
+
+## Null hypothesis: there is no significant difference in mean bill length between the three different species of penguin.
+##Alternative hypothesis: there is signficant difference in mean bill length between atleast two of the three species.
+
+##Run a statistical test. I decided to do an ANOVA test looking at the differences between mean bill length across the different species.
+```{r}
+model <- lm(bill_length_mm ~ species, data = Clean_data)
+anova_result <- anova(model)
+```
+##It is time to analyse the results of the anova...
+```{r}
+print(anova_result)
+```
+##This anova has produced an incredibly small p value it almost pracitcally 0. This tells us that there is strong evidence that the results are highly statistically significant. The null hypothesis is infact wrong and there are differences in mean bill length among species.
+
+## I decided to conduct a post-hoc test using the Tukey method as the results of my anova suggest there are significant differences and I want to see which species differ from eachother in particular.
+
+```{r}
+library(agricolae)
+
+# Conduct Tukey's HSD post-hoc test
+tukey_result <- HSD.test(model, "species")
+
+# Print the results
+print(tukey_result)
+
+```
+##The results of this test suggest Chinstrap has a significantly different mean bill length compared to Gentoo and Adelie. Gentoo and Adelie do not show a significant difference in mean bill length.
+
+##In order to visualise the results of these statistical tests I chose to create a dot-plot:
+
+```{r}
+library(ggplot2)
+
+tukey_df <- as.data.frame(tukey_result$groups)
+
+tukey_df$groups <- factor(tukey_df$groups, levels = c("a", "b", "c"), labels = c("Ade", "Gen", "Chi"))
+
+ggplot(tukey_df, aes(x = groups, y = bill_length_mm, color = groups)) +
+  geom_point(position = position_dodge(width = 0.8), size = 3) +
+  labs(title = "Tukey's HSD Test",
+       x = "Species",
+       y = "Mean Bill Length (mm)",
+       color = "Species") +
+  theme_minimal()
+```
+## The results of my statistical tests as shown in the figure above clearly present that there is a significant difference in mean bill length between at least two of the three species. We can therefore reject our null hypothesis that states there is no significant differences in mean bill length between the three species.
+
+##Q3) Open Science: 
+##A) My githublink: 
